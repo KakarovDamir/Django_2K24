@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'attendance',
     'grades',
     'notifications',
+    'analytics',
 ]
 
 MIDDLEWARE = [
@@ -62,6 +63,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'analytics.middleware.APILoggingMiddleware',
 ]
 
 ROOT_URLCONF = 'StudentManagementSystem.urls'
