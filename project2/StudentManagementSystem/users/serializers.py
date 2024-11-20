@@ -5,3 +5,4 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ['id', 'username', 'email', 'role']
+        ref_name = 'CustomUserSerializer'

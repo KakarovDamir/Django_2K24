@@ -7,3 +7,4 @@ class AttendanceReminderTest(TestCase):
     def test_send_daily_attendance_reminder(self, mock_send_mail):
         send_daily_attendance_reminder()
         self.assertTrue(mock_send_mail.called)
+

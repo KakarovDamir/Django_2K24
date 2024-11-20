@@ -9,11 +9,14 @@ import logging
 from django.core.cache import cache
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAdminUser
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
 
 class CoursePagination(PageNumberPagination):
     page_size = 10
 
-# Initialize a logger for debugging
 logger = logging.getLogger(__name__)
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -23,42 +26,56 @@ class CourseViewSet(viewsets.ModelViewSet):
     pagination_class = CoursePagination
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name', 'instructor__username']
-
+    
+    @swagger_auto_schema(
+        operation_description="Retrieve a list of courses with filtering and pagination.",
+        responses={200: CourseSerializer(many=True)},
+        manual_parameters=[
+            openapi.Parameter('name', openapi.IN_QUERY, description="Filter by course name", type=openapi.TYPE_STRING),
+            openapi.Parameter('instructor__username', openapi.IN_QUERY, description="Filter by instructor username", type=openapi.TYPE_STRING),
+        ]
+    )
     def list(self, request, *args, **kwargs):
-        # Define cache key considering filters
         cache_key = f"courses_list_{request.GET.urlencode()}"
         
         logger.debug(f"Cache Key for courses: {cache_key}")
         
-        # Attempt to retrieve the cached data
         cached_courses = cache.get(cache_key)
-        
         if cached_courses:
             logger.debug("Serving from cache")
             return Response(cached_courses, status=status.HTTP_200_OK)
 
-        # Proceed with default list retrieval if no cached data
         response = super().list(request, *args, **kwargs)
-        # Cache the response data
         cache.set(cache_key, response.data, timeout=300)
         
         logger.debug("Stored to cache")
         
         return response
 
+    @swagger_auto_schema(
+        operation_description="Create a new course.",
+        request_body=CourseSerializer,
+        responses={201: CourseSerializer, 400: "Bad request"}
+    )
     def perform_create(self, serializer):
         super().perform_create(serializer)
-        # Invalidate related cache on create
         cache.delete_pattern("courses_list_*")
 
+    @swagger_auto_schema(
+        operation_description="Update an existing course.",
+        request_body=CourseSerializer,
+        responses={200: CourseSerializer, 400: "Bad request", 404: "Not found"}
+    )
     def perform_update(self, serializer):
         super().perform_update(serializer)
-        # Invalidate related cache on update
         cache.delete_pattern("courses_list_*")
 
+    @swagger_auto_schema(
+        operation_description="Delete a course.",
+        responses={204: "No content", 404: "Not found"}
+    )
     def perform_destroy(self, instance):
         super().perform_destroy(instance)
-        # Invalidate related cache on delete
         cache.delete_pattern("courses_list_*")
 
 class EnrollmentViewSet(viewsets.ModelViewSet):
@@ -66,10 +83,19 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     serializer_class = EnrollmentSerializer
     permission_classes = [IsAuthenticated, IsTeacher | IsAdmin]
     
+    @swagger_auto_schema(
+        operation_description="Create a new enrollment.",
+        request_body=EnrollmentSerializer,
+        responses={201: EnrollmentSerializer, 400: "Bad request"}
+    )
     def perform_create(self, serializer):
         super().perform_create(serializer)
         logger.info(f"Student {serializer.data['student']} enrolled in course {serializer.data['course']}.")
 
+    @swagger_auto_schema(
+        operation_description="Delete an enrollment.",
+        responses={204: "No content", 404: "Not found"}
+    )
     def perform_destroy(self, instance):
         super().perform_destroy(instance)
         logger.info(f"Student {instance.student} unenrolled from course {instance.course}.")
